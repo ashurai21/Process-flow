@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Process Flow & Benchmark Analysis</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, button { padding: 6px; margin: 4px; }
+    .step { border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+    table, th, td { border: 1px solid black; border-collapse: collapse; padding: 6px; }
+    table { margin-top: 20px; width: 100%; }
+    .bottleneck { background-color: #ffcccc; }
+    .highlight { font-weight: bold; color: red; }
+  </style>
+</head>
+<body>
+
+<h2>Segment Process Entry</h2>
+
+<label>Segment Name: </label>
+<input type="text" id="segmentName"><br>
+
+<label>Number of Steps: </label>
+<input type="number" id="stepCount" min="1"><br>
+
+<button onclick="generateForm()">Generate Process Form</button>
+
+<form id="stepsForm"></form>
+
+<button onclick="submitSegment()">Submit Segment</button>
+
+<h3>Process Flow Diagram</h3>
+<div id="flowDiagram"></div>
+
+<h3>Process Data Comparison (Hours)</h3>
+<table id="dataTable">
+  <thead id="tableHead">
+    <tr>
+      <th>Step No.</th>
+      <th>Process Step Name</th>
+      <th>Waiting Time</th>
+      <th>Activity Duration</th>
+      <th>Benchmark Duration</th>
+      <th>Reduction Required</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody id="tableBody"></tbody>
+</table>
+
+<h3>Average Duration per Step</h3>
+<table id="averageTable">
+  <thead><tr><th>Process Step</th><th>Average Duration (hrs)</th></tr></thead>
+  <tbody id="averageBody"></tbody>
+</table>
+
+<script>
+let allSegments = [];
+let stepAverages = [];
+
+function generateForm() {
+  const stepCount = parseInt(document.getElementById('stepCount').value);
+  const form = document.getElementById('stepsForm');
+  form.innerHTML = '';
+
+  for (let i = 1; i <= stepCount; i++) {
+    const div = document.createElement('div');
+    div.className = 'step';
+    div.innerHTML = `
+      <h4>Process Step ${i}</h4>
+      <label>Step Name: </label><input type="text" name="stepName${i}" required><br>
+      ${i > 1 ? '<label>Waiting Time (hrs): </label><input type="number" name="waiting' + i + '" min="0" step="0.1" value="0"><br>' : ''}
+      <label>Activity Duration (hrs): </label><input type="number" name="duration${i}" min="0.1" step="0.1" required><br>
+      <label>Benchmark Duration (hrs): </label><input type="number" name="benchmark${i}" min="0.1" step="0.1" required><br>
+    `;
+    form.appendChild(div);
+  }
+}
+
+function submitSegment() {
+  const stepCount = parseInt(document.getElementById('stepCount').value);
+  const segmentName = document.getElementById('segmentName').value.trim();
+  const tbody = document.getElementById('tableBody');
+  const avgBody = document.getElementById('averageBody');
+  const flow = document.getElementById('flowDiagram');
+
+  if (!segmentName || !stepCount) {
+    alert("Please fill segment name and steps.");
+    return;
+  }
+
+  let totalCycleTime = 0;
+  let flowText = '';
+
+  for (let i = 1; i <= stepCount; i++) {
+    const stepName = document.querySelector(`[name=stepName${i}]`).value;
+    const duration = parseFloat(document.querySelector(`[name=duration${i}]`).value);
+    const waiting = i > 1 ? parseFloat(document.querySelector(`[name=waiting${i}]`).value || 0) : 0;
+    const benchmark = parseFloat(document.querySelector(`[name=benchmark${i}]`).value);
+    const reduction = duration - benchmark;
+
+    totalCycleTime += duration + waiting;
+
+    const row = tbody.insertRow();
+    row.insertCell().textContent = i;
+    row.insertCell().textContent = stepName;
+    row.insertCell().textContent = waiting.toFixed(2);
+    row.insertCell().textContent = duration.toFixed(2);
+    row.insertCell().textContent = benchmark.toFixed(2);
+    row.insertCell().textContent = (reduction > 0 ? reduction.toFixed(2) : '0.00');
+    row.insertCell().innerHTML = reduction > 0 ? `<span class='highlight'>Bottleneck</span>` : 'OK';
+    if (reduction > 0) row.classList.add('bottleneck');
+
+    // Update average tracking
+    if (!stepAverages[i - 1]) stepAverages[i - 1] = [];
+    stepAverages[i - 1].push(duration);
+
+    // Flow diagram text
+    flowText += `${stepName} → `;
+  }
+
+  allSegments.push({ segmentName, totalCycleTime });
+  flow.innerHTML += `<p><strong>${segmentName}</strong>: ${flowText.slice(0, -3)}</p>`;
+
+  // Show average durations
+  avgBody.innerHTML = '';
+  stepAverages.forEach((durations, idx) => {
+    const sum = durations.reduce((a, b) => a + b, 0);
+    const avg = (sum / durations.length).toFixed(2);
+    const row = avgBody.insertRow();
+    row.insertCell().textContent = `Step ${idx + 1}`;
+    row.insertCell().textContent = avg;
+  });
+
+  // Reset form
+  document.getElementById('stepsForm').innerHTML = '';
+  document.getElementById('segmentName').value = '';
+  document.getElementById('stepCount').value = '';
+}
+</script>
+
+</body>
+</html>
